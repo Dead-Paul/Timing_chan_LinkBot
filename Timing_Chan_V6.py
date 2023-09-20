@@ -1,4 +1,5 @@
 import os
+import json
 import time
 import random
 import sqlite3
@@ -6,7 +7,10 @@ import telebot
 from telebot import *
 from datetime import datetime, timedelta, timezone
 
-bot_token = "5693874279:AAHHxnCREjqhO0H0HbivphRqX3kXKiqtSIg"
+with open("Bot_Data.json") as data:
+    bot_data = json.loads(data.read())
+
+bot_token = bot_data["token"]
 bot = telebot.TeleBot(bot_token, parse_mode = None)
 bot_name = bot.get_me().username
 
@@ -20,8 +24,6 @@ def get_datetime(add_time_difference = 0):
     return datetime.now(tz = timezone(offset))
 
 print(f"\nБот включен в {str(get_datetime())[11:16]}. \nДата: {get_datetime().date()}.\n")
-
-group_title = "Расписание (ПІ-212)"
 
 def sql(execute_command : str, command_parameters = None):
     base = sqlite3.connect("Bot_Data_Base.db")
@@ -237,7 +239,7 @@ def start_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
 
     elif str(message.chat.id)[0] == '-':
-        if bot.get_chat(message.chat.id).title == group_title and sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")) == None:
+        if bot.get_chat(message.chat.id).title == bot_data["group_title"] and sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")) == None:
             sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, "\"group\"", 1, False))
             bot.send_message(message.chat.id, f"Приветствую, моя основная группа {bot.get_chat(message.chat.id).title}! ( 〃▽〃) ")
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))

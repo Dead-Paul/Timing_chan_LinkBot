@@ -4,11 +4,16 @@ import random
 import telebot
 from telebot import *
 
-bot_token = "5790849067:AAFG8MZIl-KHcNFGBBWPb6_P1r-GuavkKLU"
+with open("Bot_Data.json") as data:
+    bot_data = json.loads(data.read())
+
+bot_token = bot_data["token"]
 bot = telebot.TeleBot(bot_token, parse_mode = None)
 bot_name = bot.get_me().username
 
 cancel = ["cancel", "/cancel", f"/cancel@{bot_name.lower()}", "отмена"]
+
+print("Бот включен!")
 
 
 def sql(execute_command : str, command_parameters = None):
