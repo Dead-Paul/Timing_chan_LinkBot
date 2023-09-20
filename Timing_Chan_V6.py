@@ -16,10 +16,7 @@ cancel = ["cancel", "/cancel", f"/cancel@{bot_name.lower()}", "отмена"]
 
 time_difference = 3
 def get_datetime(add_time_difference = 0):
-    if time_difference + add_time_difference > 24:
-        offset = timedelta(hours = -time.timezone//3600 + add_time_difference)
-    else:
-        offset = timedelta(hours = -time.timezone//3600 + time_difference + add_time_difference)
+    offset = timedelta(hours = -time.timezone//3600 + time_difference + add_time_difference)
     return datetime.now(tz = timezone(offset))
 
 print(f"\nБот включен в {str(get_datetime())[11:16]}. \nДата: {get_datetime().date()}.\n")
