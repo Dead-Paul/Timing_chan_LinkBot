@@ -151,17 +151,22 @@ def lesson_at(day : int, hour : int, minute : int):
     return lesson
 
 def distribution(announcement : str, remind : str = empty_remind, sticker_types : list = ["service"]):
-    for id in sql("SELECT id, name FROM users WHERE distribution = {} ".format(True)):
-        try:
-            bot.send_message(id[0], announcement)
-            if empty_remind not in remind:
-                bot.send_message(id[0], remind)
+    id_list = sql("SELECT id, name FROM users WHERE distribution = {} ".format(True))
+    if id_list != None:
+        print(f"{' ' * 4}Рассылка включена у {len(id_list)} пользователей.")
+        for id in id_list:
             try:
-                bot.send_sticker(id[0], get_sticker(sticker_types))
+                bot.send_message(id[0], announcement)
+                if empty_remind not in remind:
+                    bot.send_message(id[0], remind)
+                try:
+                    bot.send_sticker(id[0], get_sticker(sticker_types))
+                except:
+                    bot.send_message(id[0], "У меня не получилось отправить стикер. \n(♡μ_μ) ")
             except:
-                bot.send_message(id[0], "У меня не получилось отправить стикер. \n(♡μ_μ) ")
-        except:
-            sql("UPDATE users SET distribution = {} WHERE id = {}".format(False, id[0]))
+                sql("UPDATE users SET distribution = {} WHERE id = {}".format(False, id[0]))
+    else:
+        print(f"{' ' * 4}Рассылка выключена у всех пользователей...")
 
 is_distribution = False
 def lessons_distribution():
