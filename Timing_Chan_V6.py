@@ -328,7 +328,7 @@ def timetable_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
 
     elif "tommorow" in message.text:
-        tommorow = get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute).weekday()
+        tommorow = get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).weekday()
         if days[tommorow][2]:
             bot.send_message(message.chat.id, timetable_for(tommorow))
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
