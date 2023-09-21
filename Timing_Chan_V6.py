@@ -616,7 +616,7 @@ def edit_timetable_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
     elif str(message.chat.id)[0] == '-':
         bot.send_message(message.chat.id, f"Вы не можете редактровать расписание в чате группы. \n(＞_＜) \
-                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: {bot_name}")
+                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: @{bot_name}")
 
     lessons_distribution()
 
@@ -741,8 +741,8 @@ def write_msg(message):
                                            \n\nВы не админ и не создатель. \nヽ(~_~)ゝ")
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
     elif str(message.chat.id)[0] == '-':
-        bot.send_message(message.chat.id, f"Вы не можете редактровать расписание в чате группы. \n(＞_＜) \
-                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: {bot_name}")
+        bot.send_message(message.chat.id, f"Вы не можете отправлять сообщения от имени бота в чате группы. \n(＞_＜) \
+                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: @{bot_name}")
 
     lessons_distribution()
 
@@ -799,8 +799,8 @@ def gradesheet_msg(message):
         bot.register_next_step_handler(name_question, write_in)
         bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
     elif str(message.chat.id)[0] == '-':
-        bot.send_message(message.chat.id, f"Вы не можете редактровать расписание в чате группы. \n(＞_＜) \
-                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: {bot_name}")
+        bot.send_message(message.chat.id, f"Вы не можете составить табель в чате группы. \n(＞_＜) \
+                                        \n\nЧтобы использовать все доступные комманды напишите в лс боту: @{bot_name}")
 
     lessons_distribution()
 
@@ -928,11 +928,6 @@ def FAQ_answers(message):
 @bot.message_handler(commands = ["faq", "FAQ"])
 def FAQ_msg(message):
     if str(message.chat.id)[0] != '-':
-        """
-        bot.send_message(message.chat.id, "Канал создателя бота: @all_dol")
-        bot.send_message(message.chat.id, "Прочтите полное руководство по ссылке")
-        bot.send_message(message.chat.id, "Кому писать если у меня забаговал бот? \n /support \n(*μ_μ) ")
-        """
         bot.send_message(message.chat.id, "Часто задаваемые вопросы и некоторая полезная информация:"
                                            "\n\nЧто такое рассылка и зачем мне её включать? \n /distribution \nσ(￣、￣〃) "
                                            "\n\nЕсть описание каждой команды простым языком? \n /help \n(・・ ) ? "
@@ -947,7 +942,7 @@ def FAQ_msg(message):
         bot.send_sticker(message.chat.id, get_sticker(["service"]))
     elif str(message.chat.id)[0] == '-':
         bot.send_message(message.chat.id, f"Вы не можете использовать эту команду в чате группы. \
-                         \n\n Чтобы использовать эту и прочие комманды напишите в лс боту: {bot_name} .")
+                         \n\n Чтобы использовать эту и прочие комманды напишите в лс боту: @{bot_name} .")
 
 
 
