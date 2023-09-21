@@ -7,10 +7,19 @@ import telebot
 from telebot import *
 from datetime import datetime, timedelta, timezone
 
-with open("Bot_Data.json") as data:
-    bot_data = json.loads(data.read())
+def bot_data(get = None, set : dict = None):
+    if get != None:
+        with open("Bot_Data.json", 'r') as data:
+            return json.loads(data.read())[get]
+    elif set != None:
+        with open("Bot_Data.json", 'r') as was_data:
+            new_data = json.loads(was_data.read())
+        with open("Bot_Data.json", 'w') as data:
+            for key, value in set.items():
+                new_data[key] = value
+            return json.dump(new_data, data)
 
-bot_token = bot_data["token"]
+bot_token = bot_data("token")
 bot = telebot.TeleBot(bot_token, parse_mode = None)
 bot_name = bot.get_me().username
 
@@ -244,7 +253,7 @@ def start_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
 
     elif str(message.chat.id)[0] == '-':
-        if bot.get_chat(message.chat.id).title == bot_data["group_title"] and sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")) == None:
+        if bot.get_chat(message.chat.id).title == bot_data("group_title") and sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")) == None:
             sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, "\"group\"", 1, False))
             bot.send_message(message.chat.id, f"Приветствую, моя основная группа {bot.get_chat(message.chat.id).title}! ( 〃▽〃) ")
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
@@ -329,6 +338,11 @@ def timetable_msg(message):
 
     elif "tommorow" in message.text:
         tommorow = get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).weekday()
+        print(tommorow)
+        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).hour)
+        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).minute)
+        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).second)
+
         if days[tommorow][2]:
             bot.send_message(message.chat.id, timetable_for(tommorow))
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
@@ -899,7 +913,7 @@ def FAQ_answers(message):
                          \n(воспользуйтесь /support для звязи с разработчиками, посмотрите канал, где публикуются обновления от разработчиков @all_dol ) \
                          \n 1) Сообщайте о багах или предлагайте нововведения. \
                          \n 2) Вступить в команду разработчиков и помочь писать код. \
-                         \n 3) Помочь деньгами Privatbank:  5168 7520 2186 5798.")
+                         \n 3) Помочь деньгами /donation .")
     elif message.text == "/information":
         bot.send_message(message.chat.id, "Информацию о разработке бота вы можете найти на канале: @all_dol . (Закрепленное сообщение) \
                          \nТам так-же публикуются новости и разроботки от создателей этого бота.")
@@ -920,10 +934,69 @@ def FAQ_answers(message):
                         \n\nСписок: \
                         \n - Проверка дней рождений учеников и оповещение, чтоб никто не пропустил их. (команды не требуется) \
                         \n - По просьбе бот даст ссылку на занятие, которое сейчас проходит. (В сообщении должно быть \"Дай ссылку\" \
-                        \n - Вы можете получить полную информацию о занятиях, то есть все названия и ссылки. (команда /lesson_info) \
+                        \n - Вы можете получить полную информацию о занятиях, то есть все названия и ссылки. (команда /lessons_info) \
                         \n - Создлатель может узнать полную информацию о боте, в которую входит: Время на сервере, разница во времени, \
                          и состояние рассылки. (команда /bot_info) ")
     bot.send_sticker(message.chat.id, get_sticker(["service"]))
+
+@bot.message_handler(commands = ["donation", "change_donation", "donation_amount", "donation_target"])
+def donation(message):
+    if message.text == "/donation":
+        bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
+                         " \nЦель: " + str(bot_data("donation_target")) + " денег.")
+        if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+            bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
+                                                   f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
+                                                   f"/donation_target - Изменить целевое количество денег.")
+    elif message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+        if message.text == "/change_donation":
+            def edit_donation_text(message):
+                if message.text.lower() not in cancel:
+                    bot_data(set={"donation_text": message.text})
+                    bot.send_message(message.chat.id, "Текст доната изменён. \nヽ(o＾▽＾o)ノ")
+                    bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+                elif message.text.lower() in cancel:
+                    bot.send_message(message.chat.id, "Хорошо, текст доната не меняю. \n~(>_<~) ")
+                    bot.send_sticker(message.chat.id, get_sticker(["sad"]))
+
+            bot.send_message(message.chat.id, "Предыдущий текст к донату был: \n\n" + bot_data("donation_text"))
+            change_donation_text = bot.send_message(message.chat.id, "Пришлите новый текст к донату:")
+            bot.register_next_step_handler(change_donation_text, edit_donation_text)
+        elif message.text == "/donation_amount":
+            def edit_donation_amount(message):
+                if message.text.lower() not in cancel:
+                    try:
+                        bot_data(set = {"donation_amount" : bot_data("donation_amount") + int(message.text)})
+                        bot.send_message(message.chat.id, "Количество денег теперь " + str(bot_data("donation_amount")) + " денег. \nヽ(o＾▽＾o)ノ")
+                        bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+                    except:
+                        bot.send_message(message.chat.id, "Количество денег не изменено, пожалуйста отправляйте числа. \n(个_个) ")
+                        bot.send_sticker(message.chat.id, get_sticker(["sad"]))
+                elif message.text.lower() in cancel:
+                    bot.send_message(message.chat.id, "Количество денег не меняю. \n~(>_<~) ")
+                    bot.send_sticker(message.chat.id, get_sticker(["sad"]))
+
+            bot.send_message(message.chat.id, "На данный момент Вам задонатили " + str(bot_data("donation_amount")) + " денег.")
+            change_donation_amount = bot.send_message(message.chat.id, "Добавьте или вычтите деньги:")
+            bot.register_next_step_handler(change_donation_amount, edit_donation_amount)
+        elif message.text == "/donation_target":
+            def edit_donation_target(message):
+                if message.text.lower() not in cancel:
+                    try:
+                        bot_data(set = {"donation_target" : int(message.text)})
+                        bot.send_message(message.chat.id, "Теперь цель " + str(bot_data("donation_target")) + " денег. \nヽ(o＾▽＾o)ノ")
+                        bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+                    except:
+                        bot.send_message(message.chat.id, "Не меняю цель, пожалуйста отправляйте числа. \n(个_个) ")
+                        bot.send_sticker(message.chat.id, get_sticker(["sad"]))
+                elif message.text.lower() in cancel:
+                    bot.send_message(message.chat.id, "Цель не меняю. \n~(>_<~) ")
+                    bot.send_sticker(message.chat.id, get_sticker(["sad"]))
+
+            bot.send_message(message.chat.id, "На данный момент Ваша цель " + str(bot_data("donation_target")) + " денег.")
+            change_donation_target = bot.send_message(message.chat.id, "Пришлите новую цель:")
+            bot.register_next_step_handler(change_donation_target, edit_donation_target)
+
 
 @bot.message_handler(commands = ["faq", "FAQ"])
 def FAQ_msg(message):
@@ -946,7 +1019,7 @@ def FAQ_msg(message):
 
 
 
-@bot.message_handler(commands = ["lesson_info"])
+@bot.message_handler(commands = ["lessons_info"])
 def lesson_info_msg(message):
     lessons = ["Список всех уроков: \n\n"]
     for lesson in sql("SELECT * FROM lessons WHERE rowid > 1"):
