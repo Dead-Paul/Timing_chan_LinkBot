@@ -28,9 +28,9 @@ statuses = ["left", "member", "administrator", "creator"]
 cancel = ["cancel", "/cancel", f"/cancel@{bot_name.lower()}", "отмена"]
 
 time_difference = 3
-def get_datetime(add_time_difference = 0):
-    offset = timedelta(hours = -time.timezone//3600 + time_difference + add_time_difference)
-    return datetime.now(tz = timezone(offset))
+def get_datetime(add_hours_difference = 0, add_days_difference = 0):
+    offset = timedelta(hours = -time.timezone//3600 + time_difference)
+    return datetime.now(tz = timezone(offset)) + timedelta(days = add_days_difference, hours = add_hours_difference)
 
 print(f"\nБот включен в {str(get_datetime())[11:16]}. \nДата: {get_datetime().date()}.\n")
 
@@ -337,12 +337,7 @@ def timetable_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
 
     elif "tommorow" in message.text:
-        tommorow = get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).weekday()
-        print(tommorow)
-        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).hour)
-        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).minute)
-        print(get_datetime(add_time_difference = 24 - get_datetime().hour - (1 / 60) * get_datetime().minute - (1 / 60 / 60) * get_datetime().second).second)
-
+        tommorow = get_datetime(add_days_difference = 1).weekday()
         if days[tommorow][2]:
             bot.send_message(message.chat.id, timetable_for(tommorow))
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
