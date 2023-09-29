@@ -936,7 +936,7 @@ def FAQ_answers(message):
 
 @bot.message_handler(commands = ["donation", "change_donation", "donation_amount", "donation_target"])
 def donation(message):
-    if message.text == "/donation":
+    if "/donation" in message.text:
         bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
                          " \nЦель: " + str(bot_data("donation_target")) + " денег.")
         if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
