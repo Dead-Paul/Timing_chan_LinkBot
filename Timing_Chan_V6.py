@@ -934,16 +934,20 @@ def FAQ_answers(message):
                          и состояние рассылки. (команда /bot_info) ")
     bot.send_sticker(message.chat.id, get_sticker(["service"]))
 
-@bot.message_handler(commands = ["donation", "change_donation", "donation_amount", "donation_target"])
+
+@bot.message_handler(commands = ["donation"])
 def donation(message):
-    if "/donation" in message.text:
-        bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
-                         " \nЦель: " + str(bot_data("donation_target")) + " денег.")
-        if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
-            bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
-                                                   f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
-                                                   f"/donation_target - Изменить целевое количество денег.")
-    elif message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+    bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
+                     " \nЦель: " + str(bot_data("donation_target")) + " денег.")
+    if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+        bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
+                                               f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
+                                               f"/donation_target - Изменить целевое количество денег.")
+
+
+@bot.message_handler(commands = ["change_donation", "donation_amount", "donation_target"])
+def donation_actions(message):
+    if message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
         if message.text == "/change_donation":
             def edit_donation_text(message):
                 if message.text.lower() not in cancel:
@@ -991,6 +995,9 @@ def donation(message):
             bot.send_message(message.chat.id, "На данный момент Ваша цель " + str(bot_data("donation_target")) + " денег.")
             change_donation_target = bot.send_message(message.chat.id, "Пришлите новую цель:")
             bot.register_next_step_handler(change_donation_target, edit_donation_target)
+    else:
+        bot.send_message(message.chet.id, "Вы не создатель, вы не можете редактировать что-либо связанное с донатами.")
+        bot.send_sticker(message.chat.id, get_sticker(["sad"]))
 
 
 @bot.message_handler(commands = ["faq", "FAQ"])
