@@ -237,11 +237,14 @@ def update_user(message):
     status = bot.get_chat_member(chat_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\""))[0][0],
                                  user_id = message.from_user.id).status
     if status in statuses:
-        status_index = statuses.index(status)
+        if message.from_user.id == creator_id:
+            status_index = 3
+        else:
+            status_index = statuses.index(status)
     else:
         status_index = 0
     if sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.from_user.id, f"\"{message.from_user.username}\"", status_index, False)) == "ERROR":
-        sql("UPDATE users SET name = {}, access = {} WHERE id = {}".format(f"\"{message.from_user.username}\"", status_index, message.from_user.id))
+            sql("UPDATE users SET name = {}, access = {} WHERE id = {}".format(f"\"{message.from_user.username}\"", status_index, message.from_user.id))
     return status_index
 
 @bot.message_handler(commands = ["start"])
@@ -408,7 +411,7 @@ def reminder_msg(message):
             bot.send_message(message.chat.id, "Хорошо, напоминания не редактирую. \n(눈_눈) ", reply_markup = types.ReplyKeyboardRemove())
 
     if str(message.chat.id)[0] != '-':
-        if update_user(message) >= 2 or message.from_user.id == creator_id:
+        if update_user(message) >= 2:
             day = get_datetime().weekday()
             if get_datetime().hour >= rings[-1][3] or not days[day][2]:
                 day = next_work_day_after(day)
@@ -611,7 +614,7 @@ def edit_timetable_msg(message):
             bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
     if str(message.chat.id)[0] != '-':
-        if update_user(message) >= 2 or message.from_user.id == creator_id:
+        if update_user(message) >= 2:
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
             markup.add(types.KeyboardButton("Расписание (основное)"))
             markup.add(types.KeyboardButton("Расписание (мигалки)"))
@@ -740,7 +743,7 @@ def write_msg(message):
                                                               \nЧтобы отменить - отправте /cancel")
             bot.register_next_step_handler(write_quesrion, message_to_user)
             bot.send_sticker(message.chat.id, get_sticker(["service"]))
-        elif update_access == 3 or message.from_user.id == creator_id:
+        elif update_access == 3:
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
             for recipient in recipients:
                 markup.add(types.KeyboardButton(recipient))
@@ -941,7 +944,7 @@ def FAQ_answers(message):
 def donation(message):
     bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
                      " \nЦель: " + str(bot_data("donation_target")) + " денег.")
-    if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]) or message.from_user.id == creator_id:
+    if update_user(message) == 3:
         bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
                                                f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
                                                f"/donation_target - Изменить целевое количество денег.")
@@ -949,7 +952,7 @@ def donation(message):
 
 @bot.message_handler(commands = ["change_donation", "donation_amount", "donation_target"])
 def donation_actions(message):
-    if message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]) or message.from_user.id == creator_id:
+    if update_user(message) == 3:
         if message.text == "/change_donation":
             def edit_donation_text(message):
                 if message.text.lower() not in cancel:
@@ -1035,7 +1038,7 @@ def lesson_info_msg(message):
 
 @bot.message_handler(commands = ["bot_info"])
 def bot_info_msg(message):
-    if message.from_user.id == sql("SELECT id FROM users WHERE access = {}".format(3))[0][0] or message.from_user.id == creator_id:
+    if update_user(message) == 3:
         bot.send_message(message.chat.id, f"Время и дата на сервере: {str(datetime.now().date())} {str(datetime.now())[11:16]}.")
         bot.send_message(message.chat.id, f"Установленная разница во времени {time_difference} час(-а), Время у вас: {str(get_datetime())[11:16]}.")
         bot.send_message(message.chat.id, f"Рассылка = {str(is_distribution)}.")
