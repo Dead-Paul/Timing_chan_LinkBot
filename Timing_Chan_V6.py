@@ -23,11 +23,13 @@ bot_token = bot_data("token")
 bot = telebot.TeleBot(bot_token, parse_mode = None)
 bot_name = bot.get_me().username
 
+creator_id = bot_data("creator_id")
+
 empty_remind = "Пусто ＼(〇_ｏ)／ "
 statuses = ["left", "member", "administrator", "creator"]
 cancel = ["cancel", "/cancel", f"/cancel@{bot_name.lower()}", "отмена"]
 
-time_difference = 3
+time_difference = bot_data("time_difference")
 def get_datetime(add_hours_difference = 0, add_days_difference = 0):
     offset = timedelta(hours = -time.timezone//3600 + time_difference)
     return datetime.now(tz = timezone(offset)) + timedelta(days = add_days_difference, hours = add_hours_difference)
@@ -406,7 +408,7 @@ def reminder_msg(message):
             bot.send_message(message.chat.id, "Хорошо, напоминания не редактирую. \n(눈_눈) ", reply_markup = types.ReplyKeyboardRemove())
 
     if str(message.chat.id)[0] != '-':
-        if update_user(message) >= 2:
+        if update_user(message) >= 2 or message.from_user.id == creator_id:
             day = get_datetime().weekday()
             if get_datetime().hour >= rings[-1][3] or not days[day][2]:
                 day = next_work_day_after(day)
@@ -609,7 +611,7 @@ def edit_timetable_msg(message):
             bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
     if str(message.chat.id)[0] != '-':
-        if update_user(message) >= 2:
+        if update_user(message) >= 2 or message.from_user.id == creator_id:
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
             markup.add(types.KeyboardButton("Расписание (основное)"))
             markup.add(types.KeyboardButton("Расписание (мигалки)"))
@@ -738,7 +740,7 @@ def write_msg(message):
                                                               \nЧтобы отменить - отправте /cancel")
             bot.register_next_step_handler(write_quesrion, message_to_user)
             bot.send_sticker(message.chat.id, get_sticker(["service"]))
-        elif update_access == 3:
+        elif update_access == 3 or message.from_user.id == creator_id:
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
             for recipient in recipients:
                 markup.add(types.KeyboardButton(recipient))
@@ -871,7 +873,6 @@ def help_msg(message):
 
 def message_to_creator(message):
     if message.text.lower() not in cancel:
-        creator_id = sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]
         if message.from_user.id == creator_id:
             bot.send_message(message.chat.id, "Вы и есть создатель бота, вам не зачем отправлять себе сообщения. \n(￣_￣)・・・ ")
         else:
@@ -940,7 +941,7 @@ def FAQ_answers(message):
 def donation(message):
     bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
                      " \nЦель: " + str(bot_data("donation_target")) + " денег.")
-    if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+    if message.chat.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]) or message.from_user.id == creator_id:
         bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
                                                f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
                                                f"/donation_target - Изменить целевое количество денег.")
@@ -948,7 +949,7 @@ def donation(message):
 
 @bot.message_handler(commands = ["change_donation", "donation_amount", "donation_target"])
 def donation_actions(message):
-    if message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]):
+    if message.from_user.id == int(sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]) or message.from_user.id == creator_id:
         if message.text == "/change_donation":
             def edit_donation_text(message):
                 if message.text.lower() not in cancel:
@@ -1034,7 +1035,7 @@ def lesson_info_msg(message):
 
 @bot.message_handler(commands = ["bot_info"])
 def bot_info_msg(message):
-    if message.from_user.id == sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]:
+    if message.from_user.id == sql("SELECT id FROM users WHERE access = {}".format(3))[0][0] or message.from_user.id == creator_id:
         bot.send_message(message.chat.id, f"Время и дата на сервере: {str(datetime.now().date())} {str(datetime.now())[11:16]}.")
         bot.send_message(message.chat.id, f"Установленная разница во времени {time_difference} час(-а), Время у вас: {str(get_datetime())[11:16]}.")
         bot.send_message(message.chat.id, f"Рассылка = {str(is_distribution)}.")
