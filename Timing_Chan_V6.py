@@ -61,6 +61,15 @@ sql("CREATE TABLE IF NOT EXISTS timetable (lesson_id INTEGER, flasher_id INTEGER
 
 sql("CREATE TABLE IF NOT EXISTS stickers (id TEXT, unique_id TEXT UNIQUE, type TEXT)")
 
+
+def get_sticker(types : list = ["study", "happy", "lovely", "sad", "error", "service", "secret"]):
+    type_ids = []
+    for type in types:
+        for sticker in sql("SELECT id FROM stickers WHERE type = {}".format(f"\"{type}\"")):
+            type_ids.append(sticker)
+    return random.choice(type_ids)[0]
+
+
 last_celebrated_date = None
 congratulations = ["Желаем удачи и попутного ветра во всех начинаниях! \nЯркости жизни, душевного тепла, солнечных дней, радостных событий и безмерного счастья!",
                    "Пусть мечты воплотятся в жизнь, успехов и удачи в делах! \nРадостного праздничного дня, исполнения желаний, здоровья и благополучия!",
@@ -98,14 +107,6 @@ def next_work_day_after(weekday : int = 0):
             for day in days:
                 if days[day[0]][2]:
                     return day[0]
-
-
-def get_sticker(types : list = ["study", "happy", "lovely", "sad", "error", "service", "secret"]):
-    type_ids = []
-    for type in types:
-        for sticker in sql("SELECT id FROM stickers WHERE type = {}".format(f"\"{type}\"")):
-            type_ids.append(sticker)
-    return random.choice(type_ids)[0]
 
 
 def compose_lesson(id: list = [1, 1]):
