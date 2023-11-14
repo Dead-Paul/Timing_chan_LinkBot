@@ -59,8 +59,8 @@ sql("CREATE TABLE IF NOT EXISTS birthdays (name TEXT UNIQUE, birthday TIMESTAMP)
 
 sql("CREATE TABLE IF NOT EXISTS days (day TEXT UNIQUE, is_work_day BOOLEAN)")
 sql("CREATE TABLE IF NOT EXISTS rings (start TIMESTAMP, end TIMESTAMP, empty_lesson TEXT UNIQUE)")
-sql("CREATE TABLE IF NOT EXISTS lessons (name TEXT UNIQUE, link TEXT, class TEXT, remind TEXT)")
-sql("CREATE TABLE IF NOT EXISTS timetable (lesson_id INTEGER, flasher_id INTEGER)")
+sql("CREATE TABLE IF NOT EXISTS lessons (name TEXT UNIQUE, link TEXT, class TEXT)")
+sql("CREATE TABLE IF NOT EXISTS timetable (lesson_id INTEGER, flasher_id INTEGER, remind TEXT)")
 
 sql("CREATE TABLE IF NOT EXISTS stickers (id TEXT, unique_id TEXT UNIQUE, type TEXT)")
 
@@ -119,7 +119,7 @@ def next_work_day_after(weekday : int = 0):
 def compose_lesson(id: list = [1, 1]):
     lesson = sql("SELECT * FROM lessons WHERE rowid = {}".format(id[0]))
     flasher = sql("SELECT * FROM lessons WHERE rowid = {}".format(id[1]))
-    result = {"name" : "", "link" : "", "remind" : ""}
+    result = {"name" : "", "link" : "", "remind" : empty_remind}
     if lesson != None and flasher != None:
         if flasher[0][0] == sql("SELECT name FROM lessons WHERE rowid = {}".format(1))[0][0]:
             result["name"] = lesson[0][0]
@@ -128,7 +128,6 @@ def compose_lesson(id: list = [1, 1]):
             result["name"] = f"{lesson[0][0]} / {flasher[0][0]}"
             result["link"] = f" \n\nСсылка на занятие ({lesson[0][0]}): \n{lesson[0][1]} \n\nСсылка на класс: \n{lesson[0][2]}"
             result["link"] += f" \n\nСсылка на занятие ({flasher[0][0]}): \n{flasher[0][1]} \n\nСсылка на класс: \n{flasher[0][2]}"
-        result["remind"] = f" \n\nНапоминание: \n{lesson[0][3]}"
     return result
 
 def lesson_at(day_time):
@@ -146,10 +145,16 @@ def lesson_at(day_time):
             lesson["is_lesson"] = False
             lesson["name"] = "Занятия ещё не начались, отдохните..."
             return lesson
-        elif rings[0][0].strftime("%H:%M") < day_time.strftime("%H:%M") < rings[-1][1].strftime("%H:%M"):
+        elif rings[-1][1].strftime("%H:%M") < day_time.strftime("%H:%M"):
+            lesson = compose_lesson([0, 0])
+            lesson["is_lesson"] = False
+            lesson["name"] = "Занятия уже закончились, отдохните..."
+            return lesson
+        else:
             for index in range(0, len(rings)):
                 if rings[index][0].strftime("%H:%M") <= day_time.strftime("%H:%M") <= rings[index][1].strftime("%H:%M"):
-                    lesson = compose_lesson(sql("SELECT * FROM timetable WHERE rowid = {}".format(day_time.weekday() * len(rings) + index + 1))[0])
+                    lesson = compose_lesson(sql("SELECT * FROM timetable WHERE rowid = {}".format((index + 1) + day_time.weekday() * len(rings)))[0])
+                    lesson["remind"] = sql("SELECT remind FROM timetable WHERE rowid = {}".format((index + 1) + day_time.weekday() * len(rings)))[0][0]
                     if lesson["name"] == sql("SELECT name FROM lessons WHERE rowid = {}".format(1))[0][0]:
                         lesson["is_lesson"] = False
                         lesson["name"] = f"{rings[index][2]} нет! \n(´ ∀ ` *) "
@@ -160,11 +165,7 @@ def lesson_at(day_time):
             lesson["is_lesson"] = False
             lesson["name"] = "Сейчас перемена, передохните."
             return lesson
-        elif rings[-1][1].strftime("%H:%M") < day_time.strftime("%H:%M"):
-            lesson = compose_lesson([0, 0])
-            lesson["is_lesson"] = False
-            lesson["name"] = "Занятия уже закончились, отдохните..."
-            return lesson
+
 
 def distribution(announcement : str, remind : str = empty_remind, sticker_types : list = ["service"]):
     id_list = sql("SELECT id, name FROM users WHERE distribution = {} ".format(True))
@@ -189,7 +190,7 @@ def lessons_distribution():
         print(f"{' ' * 4}Рассылка включена в {get_datetime().strftime('%H:%M')} \n")
         rings = sql("SELECT * FROM rings")
         if sql("SELECT is_work_day FROM days WHERE rowid - 1 = {}".format(get_datetime().weekday()))[0][0]:
-            if rings[0][0].strftime("%H:%M") > get_datetime().strftime("%H:%M"):
+            if rings[0][0].strftime("%H:%M") > (get_datetime() + timedelta(minutes = 4)).strftime("%H:%M"):
                 time.sleep((get_datetime().replace(hour=(rings[0][0] - timedelta(minutes=4)).hour, minute=(rings[0][0] - timedelta(minutes=4)).minute,
                                                                         second=0, microsecond=0) - get_datetime()).seconds)
             elif rings[-1][1].strftime("%H:%M") < get_datetime().strftime("%H:%M"):
@@ -212,8 +213,8 @@ def lessons_distribution():
                                                                                   minute = (rings[0][0] - timedelta(minutes = 4)).minute,
                                                                                   second = 0, microsecond = 0) - get_datetime()).seconds)
                 elif rings[index][1].strftime("%H:%M") == get_datetime().strftime("%H:%M"):
-                    id = sql("SELECT lesson_id FROM timetable WHERE rowid = {}".format(index + 1 + get_datetime().weekday() * len(rings)))[0][0]
-                    sql("UPDATE lessons SET remind = {} WHERE rowid = {}".format(f"\"{empty_remind}\"", id))
+                    sql("UPDATE timetable SET remind = {} WHERE rowid = {}".format(f"\"{empty_remind}\"",
+                                                                                   (index + 1) + get_datetime().weekday() * len(rings)))
                     print(f"\n{' ' * 8}{index + 1} занятие закончилось, время: {get_datetime().strftime('%H:%M')}\n")
                     if index + 1 >= len(rings):
                         distribution(f"Учебный день закончился, можете отдохнуть!", empty_remind, ["study", "sad"])
@@ -368,26 +369,27 @@ def timetable_msg(message):
 
     update_user(message)
 
-@bot.message_handler(commands = ["reminder"])
-def reminder_msg(message):
-    days = sql("SELECT rowid - 1, day, is_work_day FROM days")
-    rings = sql("SELECT rowid, * FROM rings")
-    lesson_id = None
 
-    def edit_remind(message):
+
+@bot.message_handler(commands = ["edit_timetable"])
+def edit_timetable_msg(message):
+    rings = sql("SELECT rowid, * FROM rings")
+
+    def edit_remind(message, day, number):
         if str(message.text).lower() not in cancel:
             if message.text.lower() == "удалить":
-                if sql("UPDATE lessons SET remind = {} WHERE rowid = {}".format(f"\"{empty_remind}\"", lesson_id)) != "ERROR":
+                if sql("UPDATE timetable SET remind = {} WHERE rowid = {}".format(f"\"{empty_remind}\"", number + day * len(rings))) != "ERROR":
                     bot.send_message(message.chat.id, f"Редактирование завершено! Текст напоминания удалён. \n٩(◕‿◕｡)۶ ",
                                      reply_markup = types.ReplyKeyboardRemove())
                 else:
                     bot.send_message(message.chat.id, "Не удалось удалить текст напоминания, попробуйте ещё раз. \n(＞﹏＜) \
                                      \n\nЕсли ошибка повторится, то попросите помощи у создателя через команду /support.")
             else:
-                if sql("UPDATE lessons SET remind = {} WHERE rowid = {}".format(f"\"{message.text}\"", lesson_id)) != "ERROR":
+                if sql("UPDATE timetable SET remind = {} WHERE rowid = {}".format(f"\"{message.text}\"", number + day * len(rings))) != "ERROR":
                     bot.send_message(message.chat.id, "Редактирование завершено! Текст напоминания изменён. \n٩(◕‿◕｡)۶",
                                      reply_markup = types.ReplyKeyboardRemove())
                     lesson_now = lesson_at(get_datetime())
+                    lesson_id = sql("SELECT lesson_id FROM timetable WHERE rowid = {}".format(number + day * len(rings)))[0][0]
                     if lesson_now["is_lesson"] and compose_lesson([lesson_id, 1])["name"] in lesson_now["name"]:
                         distribution(f"К {lesson_now['name']} добавлено новое напоминание:", lesson_now["remind"], ["hands", "sad", "happy"])
                         bot.send_message(message.chat.id, "Эта пара проходит сейчас - поэтому я напоминание разослано всем участникам рассылки. \n(.❛ ᴗ ❛.) ")
@@ -398,57 +400,30 @@ def reminder_msg(message):
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Хорошо, напоминания не редактирую. \n(￣ヘ￣) ", reply_markup = types.ReplyKeyboardRemove())
 
-    def remind_select(message):
+    def new_remind(message, day):
         if str(message.text).lower() not in cancel:
-            try:
+            if message.text[0:1].isnumeric():
                 number = int(message.text[0:1])
                 if 0 < number <= len(rings):
-                    nonlocal lesson_id
-                    lesson_id = sql("SELECT lesson_id FROM timetable WHERE rowid = {}".format(number + day * len(rings)))[0][0]
-                    lesson = compose_lesson([lesson_id, 1])
-                    bot.send_message(message.chat.id, f"{lesson['remind']} \n\n٩(｡•́‿•̀｡)۶ ")
+                    previous_remind = sql("SELECT remind FROM timetable WHERE rowid = {}".format(number + day * len(rings)))[0][0]
+                    id = sql("SELECT lesson_id, flasher_id FROM timetable WHERE rowid = {}".format(number + day * len(rings)))[0]
+                    lesson = compose_lesson(id)
+                    bot.send_message(message.chat.id, f"Сейчас напоминание к {message.text[2:]}: \n{previous_remind} \n\n٩(｡•́‿•̀｡)۶ ")
                     markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
                     markup.add(types.KeyboardButton("Удалить"))
                     markup.add(types.KeyboardButton("Отмена"))
                     ask_text = bot.send_message(message.chat.id, f"Теперь напишите новый текст напоминания, \
                                                                \n(чтоб удалить напоминание нажмите на кнопку \"Удалить\"). \
                                                                \nЕсли передумали, то /cancel или Отмена.", reply_markup = markup)
-                    bot.register_next_step_handler(ask_text, edit_remind)
+                    bot.register_next_step_handler(ask_text, edit_remind, day, number)
                 else:
                     bot.send_message(message.chat.id, "Не правильно указан номер занятия, поэтому редактирование отменено. \n(--_--) ",
                                      reply_markup = types.ReplyKeyboardRemove())
-            except:
+            else:
                 bot.send_message(message.chat.id, "В сообщении не указан номер занятия, поэтому редактирование отменено. \n<(￣ ﹌ ￣)> ",
                                  reply_markup = types.ReplyKeyboardRemove())
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Хорошо, напоминания не редактирую. \n(눈_눈) ", reply_markup = types.ReplyKeyboardRemove())
-
-    if str(message.chat.id)[0] != '-':
-        if update_user(message) >= 2:
-            day = get_datetime().weekday()
-            if get_datetime().strftime("%H:%M") >= rings[-1][1].strftime("%H:%M") or not days[day][2]:
-                day = next_work_day_after(day)
-            timetable_ids = sql("SELECT * FROM timetable WHERE {} < rowid and rowid < {}".format(day * len(rings),
-                                                                                                 day * len(rings) + len(rings) + 1))
-            markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
-            for index in range(0, len(timetable_ids)):
-                markup.add(types.KeyboardButton(f"{index + 1}. {compose_lesson(timetable_ids[index])['name']}"))
-            markup.add(types.KeyboardButton("Отмена"))
-            remind_question = bot.send_message(message.chat.id, "Выберете, где отредактируем напоминание:", reply_markup = markup)
-            bot.register_next_step_handler(remind_question, remind_select)
-            bot.send_sticker(message.chat.id, get_sticker(["service"]))
-        else:
-            bot.send_message(message.chat.id, "Вы не можете редактировать напоминания, потому что Вы не являетесь админом. \n(╥_╥)")
-            bot.send_sticker(message.chat.id, get_sticker(["sad"]))
-    elif str(message.chat.id)[0] == '-':
-        bot.send_message(message.chat.id, "Вы не можете редактровать напоминания в чате группы. \n(＞_＜) \
-                                          \n\nЧтобы использовать все доступные комманды напишите в лс боту: @{bot_name}")
-
-
-
-@bot.message_handler(commands = ["edit_timetable"])
-def edit_timetable_msg(message):
-    rings = sql("SELECT rowid, * FROM rings")
 
     def edit_lesson(message, lesson_type, day, number):
         if str(message.text).lower() not in cancel:
@@ -458,6 +433,13 @@ def edit_timetable_msg(message):
                     if sql("UPDATE timetable SET {} = {} WHERE rowid = {}".format(lesson_type, lesson_id[0][0], int(number) + int(day) * len(rings))) != "ERROR":
                         bot.send_message(message.chat.id, "Изменения внесены, Редактирование завершено! \n(￢‿￢ ) ",
                                          reply_markup = types.ReplyKeyboardRemove())
+                        if sql("SELECT remind FROM timetable WHERE rowid = {}".format(int(number) + int(day) * len(rings)))[0][0] != empty_remind:
+                            bot.send_message(message.chat.id, "Возможно напоминание к этому занятию не актуально! \
+                                                                  \nВы хотите удалить, или изменить его? \
+                                                                  \n(←_←) ",
+                                             reply_markup=types.ReplyKeyboardRemove())
+                            message.text = str(number)
+                            new_remind(message, day)
                     else:
                         bot.send_message(message.chat.id, "Ошибка в базе данных. Редактирование не было завершено! \n[ ± _ ± ] ",
                                          reply_markup = types.ReplyKeyboardRemove())
@@ -496,7 +478,10 @@ def edit_timetable_msg(message):
                     markup.add(types.KeyboardButton(f"{str(number)}) {lesson_name}/{flasher_name}"))
                 markup.add(types.KeyboardButton("Отмена"))
                 ask_number = bot.send_message(message.chat.id, "Выберете номер:", reply_markup=markup)
-                bot.register_next_step_handler(ask_number, select_lesson_name, lesson_type, day)
+                if lesson_type == "lesson_id" or lesson_type == "flasher_id":
+                    bot.register_next_step_handler(ask_number, select_lesson_name, lesson_type, day)
+                elif lesson_type == "remind":
+                    bot.register_next_step_handler(ask_number, new_remind, day)
             else:
                 bot.send_message(message.chat.id, "Пожалуйста, нажимайте на кнопки с заготовленными ответами, а не вводите текст вручную.\n(눈_눈)",
                                  reply_markup = types.ReplyKeyboardRemove())
@@ -573,11 +558,13 @@ def edit_timetable_msg(message):
     def select_action(message):
         if str(message.text).lower() not in cancel:
 
-            if "Расписание" in message.text:
+            if "Расписание" in message.text or "Напоминание" in message.text:
                 if "(основное)" in message.text:
                     lesson_type = "lesson_id"
                 elif "(мигалки)" in message.text:
                     lesson_type = "flasher_id"
+                elif "Напоминание" in message.text:
+                    lesson_type = "remind"
 
                 markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
                 for day in sql("SELECT day, is_work_day FROM days"):
@@ -588,7 +575,7 @@ def edit_timetable_msg(message):
                 bot.register_next_step_handler(ask_day, select_lesson_day, lesson_type)
 
             elif "Ссылку" in message.text:
-                if "(на урок)" in message.text:
+                if "(на занятие)" in message.text:
                     link_type = "link"
                 elif "(на класс)" in message.text:
                     link_type = "class"
@@ -630,7 +617,8 @@ def edit_timetable_msg(message):
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
             markup.add(types.KeyboardButton("Расписание (основное)"))
             markup.add(types.KeyboardButton("Расписание (мигалки)"))
-            markup.add(types.KeyboardButton("Ссылку (на урок)"))
+            markup.add(types.KeyboardButton("Напоминание"))
+            markup.add(types.KeyboardButton("Ссылку (на занятие)"))
             markup.add(types.KeyboardButton("Ссылку (на класс)"))
             markup.add(types.KeyboardButton("Название занятия"))
             markup.add(types.KeyboardButton("День (выходной/рабочий)"))
@@ -850,22 +838,18 @@ def help_msg(message):
     elif "/timetable" in message.text:
         bot.send_message(message.chat.id,"Команда /timetable показывает расписание на каждый будний день недели, и показывает какие дни выходные. \
                          \nРасписание редактируется админами и шанс того что оно не правильное - мал.")
-    elif "/reminder" in message.text:
-        bot.send_message(message.chat.id,"Команда /reminder - для админов, \
-                         \nчтоб стать админом вам нужно быть админов в основной группе этого бота. \
-                         \nКоманда позволяет добавить напоминание которое будет высланно вместе с ссылкой на занятие \
-                         \n(напиример: \"Сегодня Экзамен\" или \"Кто не сделал домашку, лучше не заходите\") \
-                         \nТекст пишете вы сами, шаблонов нет.")
     elif "/edit_timetable" in message.text:
         bot.send_message(message.chat.id,"Команда /edit_timetable - для админов, \
                          \nчтоб стать админом вам нужно быть админов в основной группе этого бота. \
-                         \nКоманда позволяет редактировать расписание и ссылки на занятия. \
+                         \nКоманда позволяет редактировать расписание, напоминания и ссылки на занятия. \
                          \nСначала вы отправляете команду боту, потом выбираете что будете редактировать (кнопками): \
-                         \nРасписание, Ссылку или Сделать день выходным. Потом если вы выбрали Расписание (мигалки или основное),\
-                          то выбираете день недели (кнопками), номер занятия (тоже кнопками, на которых написано название тех занятий,\
+                         \nРасписание, Напоминание, Ссылку или Сделать день выходным. Потом если вы выбрали Расписание (мигалки или основное),\
+                           то выбираете день недели (кнопками), номер занятия (тоже кнопками, на которых написано название тех занятий,\
                            которые сейчас в расписании) и потом выбираете на какое занятие изменить (тоже кнопками). \
-                         \nЕсли ты выбираете Ссылку (класса или занятия), то сначала выбор у какого занятия изменить ссылку, \
-                         \nбот отправит вам Предыдущую ссылку. А потом в сообщении вы просто отправляете новую ссылку. ")
+                           Если вы выбирете Напоминание, то так же выбираете день недели, номер занятия и отправляете боту новое напоминание. \
+                           (его так же можно удалить при помощи кнопоки Удалить). Напоминание сохраняется одно задание, а после удаляется\
+                           Если ты выбираете Ссылку (класса или занятия), то сначала выбор у какого занятия изменить ссылку, \
+                           бот отправит вам Предыдущую ссылку. А потом в сообщении вы просто отправляете новую ссылку. ")
     elif "/gradesheet" in message.text:
         bot.send_message(message.chat.id, "Команда /gradesheet - доступна для всех, \
                          \nВы пишете имя ученика, для которого вы будете делать список оценок для журнала (все предметы), потом заполняете оценки.")
