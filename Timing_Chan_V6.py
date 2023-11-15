@@ -59,7 +59,7 @@ sql("CREATE TABLE IF NOT EXISTS birthdays (name TEXT UNIQUE, birthday TIMESTAMP)
 
 sql("CREATE TABLE IF NOT EXISTS days (day TEXT UNIQUE, is_work_day BOOLEAN)")
 sql("CREATE TABLE IF NOT EXISTS rings (start TIMESTAMP, end TIMESTAMP, empty_lesson TEXT UNIQUE)")
-sql("CREATE TABLE IF NOT EXISTS lessons (name TEXT UNIQUE, link TEXT, class TEXT)")
+sql("CREATE TABLE IF NOT EXISTS lessons (name TEXT UNIQUE, link TEXT, class TEXT, max_grade INTEGER)")
 sql("CREATE TABLE IF NOT EXISTS timetable (lesson_id INTEGER, flasher_id INTEGER, remind TEXT)")
 
 sql("CREATE TABLE IF NOT EXISTS stickers (id TEXT, unique_id TEXT UNIQUE, type TEXT)")
@@ -396,7 +396,8 @@ def edit_timetable_msg(message):
                 else:
                     bot.send_message(message.chat.id, "Не удалось отредактировать текст напоминания,\
                                      \nотправляйте только текстовые сообщения и попробуйте ещё раз. \n(＞﹏＜) \
-                                     \n\nЕсли ошибка повторится, то попросите помощи у создателя через команду /support.")
+                                     \n\nЕсли ошибка повторится, то попросите помощи у создателя через команду /support.",
+                                     reply_markup = types.ReplyKeyboardRemove())
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Хорошо, напоминания не редактирую. \n(￣ヘ￣) ", reply_markup = types.ReplyKeyboardRemove())
 
@@ -449,7 +450,8 @@ def edit_timetable_msg(message):
             else:
                 bot.send_message( message.chat.id, "Не удалось завершить редактирование, так как была получена неправильная информацию. \
                                  \n\nПожалуйста нажимайте на кнопки с заготовленными ответами, а не вводите текст вручную. \
-                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.")
+                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.",
+                                  reply_markup = types.ReplyKeyboardRemove())
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
@@ -495,7 +497,8 @@ def edit_timetable_msg(message):
             else:
                 bot.send_message( message.chat.id, "Не удалось завершить редактирование из-за ошибки ввода. \
                                  \n\nПожалуйста не отправляйте в ссылку что-либо кроме текста, \
-                                 \n\nесли ошибка останется - обратитесь к создателю через команду /support.")
+                                 \n\nесли ошибка останется - обратитесь к создателю через команду /support.",
+                                  reply_markup = types.ReplyKeyboardRemove())
         elif message.text.lower() in cancel:
             bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
@@ -513,20 +516,77 @@ def edit_timetable_msg(message):
             else:
                 bot.send_message( message.chat.id, "Не удалось завершить редактирование, так как была получена неправильная информацию. \
                                  \n\nПожалуйста нажимайте на кнопки с заготовленными ответами, а не вводите текст вручную. \
-                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.")
+                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.",
+                                  reply_markup = types.ReplyKeyboardRemove())
+        elif str(message.text).lower() in cancel:
+            bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
+
+    def edit_grade(message, lesson_id):
+        if message.text.lower() not in cancel:
+            if message.text.isnumeric():
+                if sql("UPDATE lessons SET max_grade = {} WHERE rowid = {}".format(message.text, lesson_id)) != "ERROR":
+                    bot.send_message( message.chat.id, f"Редактирование завершено! Максимальная оценка изменена. \n(￣▽￣*)ゞ",
+                                      reply_markup = types.ReplyKeyboardRemove())
+                else:
+                    bot.send_message( message.chat.id, "Не удалось завершить редактирование из-за ошибки базы данных. \
+                                     \n\nПопробуйте ещё раз, \
+                                     \n\nесли ошибка останется - обратитесь к создателю через команду /support.",
+                                      reply_markup = types.ReplyKeyboardRemove())
+            else:
+                bot.send_message(message.chat.id, "Вводите оценку как число. Если оценка в буквенном виде, то отправьте \"0\". \n(￣～￣　) ",
+                                 reply_markup=types.ReplyKeyboardRemove())
+
+        elif message.text.lower() in cancel:
+            bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
+
+    def new_grade(message):
+        if str(message.text).lower() not in cancel:
+            lesson_id = sql("SELECT rowid FROM lessons WHERE name = {}".format(f"\"{message.text[:message.text.index('(') - 1]}\""))
+            if lesson_id != "ERROR":
+                if lesson_id[0][0] != "" and lesson_id != None:
+                    ask_new_grade = bot.send_message(message.chat.id, f"Пришлите мне новую максимальную оценку к {message.text}:",
+                                                     reply_markup = types.ReplyKeyboardRemove())
+                    bot.register_next_step_handler(ask_new_grade, edit_grade, lesson_id[0][0])
+                else:
+                    bot.send_message(message.chat.id, "Занятие не найдено, отменяю редактирование... \n(⊙_⊙) ", reply_markup = types.ReplyKeyboardRemove())
+            else:
+                bot.send_message( message.chat.id, "Не удалось завершить редактирование, так как была получена неправильная информацию. \
+                                 \n\nПожалуйста нажимайте на кнопки с заготовленными ответами, а не вводите текст вручную. \
+                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.",
+                                  reply_markup = types.ReplyKeyboardRemove())
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
     def switch_day(message):
-        day = int(sql("SELECT rowid - 1 FROM days WHERE day = {}".format(f"\"{message.text[:message.text.index('(') - 1]}\""))[0][0])
-        if sql("SELECT is_work_day FROM days WHERE rowid - 1 = {}".format(day))[0][0]:
-            sql("UPDATE days SET is_work_day = {} WHERE rowid - 1 = {}".format(False, day))
-            bot.send_message(message.chat.id, f"Теперь {message.text[:message.text.index('(') - 1]} выходной! \n╰(*´︶`*)╯♡  ",
-                             reply_markup = types.ReplyKeyboardRemove())
-        else:
-            sql("UPDATE days SET is_work_day = {} WHERE rowid - 1 = {}".format(True, day))
-            bot.send_message(message.chat.id, f"Теперь {message.text[:message.text.index('(') - 1]} рабочий... \n(*´ー`)ﾉ ",
-                             reply_markup = types.ReplyKeyboardRemove())
+        if str(message.text).lower() not in cancel:
+            try:
+                day = int(sql("SELECT rowid - 1 FROM days WHERE day = {}".format(f"\"{message.text[:message.text.index('(') - 1]}\""))[0][0])
+                if sql("SELECT is_work_day FROM days WHERE rowid - 1 = {}".format(day))[0][0]:
+                    if sql("UPDATE days SET is_work_day = {} WHERE rowid - 1 = {}".format(False, day)) != "ERROR":
+                        bot.send_message(message.chat.id, f"Теперь {message.text[:message.text.index('(') - 1]} выходной! \n╰(*´︶`*)╯♡  ",
+                                         reply_markup = types.ReplyKeyboardRemove())
+                    else:
+                        bot.send_message( message.chat.id, "Не удалось завершить редактирование из-за ошибки базы данных. \
+                                         \n\nПопробуйте ещё раз, \
+                                         \n\nесли ошибка останется - обратитесь к создателю через команду /support.",
+                                          reply_markup = types.ReplyKeyboardRemove())
+                else:
+                    if sql("UPDATE days SET is_work_day = {} WHERE rowid - 1 = {}".format(True, day)) != "ERROR":
+                        bot.send_message(message.chat.id, f"Теперь {message.text[:message.text.index('(') - 1]} рабочий... \n(*´ー`)ﾉ ",
+                                         reply_markup = types.ReplyKeyboardRemove())
+                    else:
+                        bot.send_message( message.chat.id, "Не удалось завершить редактирование из-за ошибки базы данных. \
+                                         \n\nПопробуйте ещё раз, \
+                                         \n\nесли ошибка останется - обратитесь к создателю через команду /support.",
+                                          reply_markup = types.ReplyKeyboardRemove())
+            except:
+                bot.send_message( message.chat.id, "Не удалось завершить редактирование, так как была получена неправильная информацию. \
+                                 \n\nПожалуйста нажимайте на кнопки с заготовленными ответами, а не вводите текст вручную. \
+                                 \n\nЕсли всё было выполнено корректно, но ошибка остаётся - обратитесь к создателю через команду /support.",
+                                  reply_markup = types.ReplyKeyboardRemove())
+
+        elif str(message.text).lower() in cancel:
+            bot.send_message(message.chat.id, "Ничего не меняю. \n(￣～￣　) ", reply_markup = types.ReplyKeyboardRemove())
 
     def edit_lesson_name(message, lesson_id):
         if message.text.lower() not in cancel:
@@ -574,18 +634,26 @@ def edit_timetable_msg(message):
                 ask_day = bot.send_message(message.chat.id, "Выберете день:", reply_markup = markup)
                 bot.register_next_step_handler(ask_day, select_lesson_day, lesson_type)
 
-            elif "Ссылку" in message.text:
+            elif "Ссылку" in message.text or "Максимальную оценку" in message.text:
                 if "(на занятие)" in message.text:
                     link_type = "link"
                 elif "(на класс)" in message.text:
                     link_type = "class"
+                elif "Максимальную оценку" in message.text:
+                    link_type = "max_grade"
 
                 markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
-                for lesson in sql("SELECT name FROM lessons ORDER BY rowid"):
-                    markup.add(types.KeyboardButton(lesson[0]))
+                for lesson in sql("SELECT name, max_grade FROM lessons ORDER BY rowid"):
+                    if link_type == "max_grade":
+                        markup.add(types.KeyboardButton(f"{lesson[0]} (макс. балл: {lesson[1]})"))
+                    else:
+                        markup.add(types.KeyboardButton(lesson[0]))
                 markup.add(types.KeyboardButton("Отмена"))
                 ask_name = bot.send_message(message.chat.id, "Выберете название:", reply_markup=markup)
-                bot.register_next_step_handler(ask_name, new_link, link_type)
+                if link_type == "max_grade":
+                    bot.register_next_step_handler(ask_name, new_grade)
+                else:
+                    bot.register_next_step_handler(ask_name, new_link, link_type)
 
             elif "Название" in message.text:
                 markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
@@ -621,6 +689,7 @@ def edit_timetable_msg(message):
             markup.add(types.KeyboardButton("Ссылку (на занятие)"))
             markup.add(types.KeyboardButton("Ссылку (на класс)"))
             markup.add(types.KeyboardButton("Название занятия"))
+            markup.add(types.KeyboardButton("Максимальную оценку"))
             markup.add(types.KeyboardButton("День (выходной/рабочий)"))
             markup.add(types.KeyboardButton("Отмена"))
             edit_question = bot.send_message(message.chat.id, "Что отредактируем?", reply_markup = markup)
@@ -762,59 +831,106 @@ def write_msg(message):
 
 @bot.message_handler(commands = ["gradesheet"])
 def gradesheet_msg(message):
-    lessons = sql("SELECT name FROM lessons ORDER BY rowid")[1:]
-    index = 0
-    student_marks = []
+    lesson = 0
+    student_grades = {}
+    lessons = sql("SELECT name, max_grade FROM lessons ORDER BY max_grade")[1:]
+    for index in lessons:
+        student_grades[index[1]] = []
 
-
-    def write_in(message):
+    def create_gradesheet(message):
         if str(message.text).lower() not in cancel:
-            def write_marks(message):
-                try:
-                    lesson = lessons[index][0]
+
+            def filling_gradesheet(message):
+                if str(message.text).lower() not in cancel:
+
                     def write_mark(message):
-                        nonlocal index, lesson
-                        if str(message.text).lower() not in cancel and index < len(lessons):
-                            mark = message.text
-                            lesson = lessons[index][0]
-                            try:
-                                student_marks.append(int(mark))
-                                student_grade_list.write(f"{lesson}: {mark}\n")
-                                index += 1
-                            except:
-                                bot.send_message(message.chat.id, "Вводите оценки только как числа(цифры). Попробуйте ещё раз.")
-                            write_marks(message)
-                        elif str(message.text).lower() in cancel and index < len(lessons) - 1:
-                            bot.send_message(message.chat.id, "Отменяю составление табеля. \n(´-ω-`) ")
+                        nonlocal lesson
+                        if str(message.text).lower() not in cancel and lesson < len(lessons):
+                            if message.text.isnumeric() and lessons[lesson][1] > 0:
+                                if int(message.text) <= lessons[lesson][1]:
+                                    student_grades[lessons[lesson][1]].append(int(message.text))
+                                    student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): {message.text}\n")
+                                    lesson += 1
+                                else:
+                                    bot.send_message(message.chat.id, f"Вы превысили максимальный балл, так не получится. Попробуйте ещё раз.")
+                            elif not message.text.isnumeric() or lessons[lesson][1] == 0:
+                                if lessons[lesson][1] > 0:
+                                    if message.text != "Оценка не выставлена" and message.text != "Не Атестован":
+                                        bot.send_message(message.chat.id, "Вводите оценки только как числа(цифры). Попробуйте ещё раз.")
+                                    elif message.text == "Оценка не выставлена":
+                                        student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): -\n")
+                                        lesson += 1
+                                    elif message.text == "Не Атестован":
+                                        student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): Н.А.\n")
+                                        lesson += 1
+                                else:
+                                    student_grade_list.write(f"{lessons[lesson][0]}: {message.text}\n")
+                                    lesson += 1
+                            filling_gradesheet(message)
+                        elif str(message.text).lower() in cancel:
+                            bot.send_message(message.chat.id, "Отменяю составление табеля. \n(´-ω-`) ", reply_markup=types.ReplyKeyboardRemove())
                             student_grade_list.close()
                             os.remove(f"{student_name}.txt")
-                    mark_question = bot.send_message(message.chat.id, f"Введите оценку по {lesson}: ")
-                    bot.register_next_step_handler(mark_question, write_mark)
-                except:
-                    average_value = float("{0:.1f}".format( sum(student_marks) / len(student_marks) ))
-                    student_grade_list.write(f"\n\nСредний балл: {average_value}")
+
+                    if lesson < len(lessons):
+                        if lessons[lesson][1] > 0:
+                            mark_question = bot.send_message(message.chat.id, f"Введите оценку по {lessons[lesson][0]} \
+                                                                                  \n(максимальная оценка {lessons[lesson][1]}):")
+                        else:
+                            mark_question = bot.send_message(message.chat.id, f"Введите оценку по {lessons[lesson][0]} \
+                                                                                  \n(средний бал этого предмета не считается):")
+                        bot.register_next_step_handler(mark_question, write_mark)
+                    else:
+                        student_grade_list.write(f"\n\n")
+                        for max_grade in student_grades.keys():
+                            if len(student_grades[max_grade]) == 0:
+                                average_value = "Нет ни одной оценки."
+                            else:
+                                average_value = float("{0:.1f}".format(sum(student_grades[max_grade]) / len(student_grades[max_grade])))
+                            student_grade_list.write(f"Средний балл (по {max_grade}-и бальной системе): {average_value}\n")
+                        student_grade_list.write(f"\n\n")
+
+                        student_grade_list.write("Обозначения:")
+                        student_grade_list.write("\n\"макс. балл\" - максимальная оценка, которая может быть получена;\
+                                                  \n\"Н.А.\" - Не атестован(-а). Слишком низкий бал;\
+                                                  \n\"-\" - Оценка не выставлена по неизвестной причине.")
+                        student_grade_list.close()
+                        bot.send_message(message.chat.id, "Составление табеля законченно.", reply_markup=types.ReplyKeyboardRemove())
+                        bot.send_document(message.chat.id, open(f"{student_name}.txt", "r"))
+                        os.remove(f"{student_name}.txt")
+
+                elif str(message.text).lower() in cancel:
+                    bot.send_message(message.chat.id, "Отменяю составление табеля. \n(´-ω-`) ", reply_markup=types.ReplyKeyboardRemove())
                     student_grade_list.close()
-                    bot.send_message(message.chat.id, "Составление табеля законченно.")
-                    bot.send_document(message.chat.id, open(f"{student_name}.txt", "r"))
                     os.remove(f"{student_name}.txt")
 
             student_name = message.text
-            open(f"{student_name}.txt", "w+", encoding = "utf-8").write(f"Оценки {student_name}. \n\n")
-            student_grade_list = open(f"{student_name}.txt", "a", encoding = "utf-8")
-            write_marks(message)
+            open(f"{student_name}.txt", "w+", encoding="utf-8").write(f"Оценки {student_name}. \n\n")
+            student_grade_list = open(f"{student_name}.txt", "a", encoding="utf-8")
+
+            markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
+            markup.add(types.KeyboardButton("Не Атестован"))
+            markup.add(types.KeyboardButton("Оценка не выставлена"))
+            markup.add(types.KeyboardButton("Отмена"))
+            bot.send_message(message.chat.id, "Приступим к заполнению:", reply_markup = markup)
+
+            filling_gradesheet(message)
 
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Отменяю составление табеля. \n(´-ω-`) ", reply_markup = types.ReplyKeyboardRemove())
 
+
     if str(message.chat.id)[0] != '-':
-        bot.send_message(message.chat.id, "Последующие дейстивия могут быть отменены с помощью /cancel .")
-        name_question = bot.send_message(message.chat.id, "Введите имя и фамилию ученика:")
-        bot.register_next_step_handler(name_question, write_in)
+        markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
+        markup.add(types.KeyboardButton("Отмена"))
+        bot.send_message(message.chat.id, "Начинаем заполнение табеля по всем предметам!", reply_markup = markup)
+
+        ask_name = bot.send_message(message.chat.id, "Введите имя и фамилию ученика:")
         bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+        bot.register_next_step_handler(ask_name, create_gradesheet)
     elif str(message.chat.id)[0] == '-':
         bot.send_message(message.chat.id, f"Вы не можете составить табель в чате группы. \n(＞_＜) \
                                         \n\nЧтобы использовать все доступные комманды напишите в лс боту: @{bot_name}")
-
 
 
 
@@ -1021,10 +1137,9 @@ def FAQ_msg(message):
 
 @bot.message_handler(commands = ["lessons_info"])
 def lesson_info_msg(message):
-    lessons = ["Список всех уроков: \n\n"]
+    lessons = ["Список всех уроков: "]
     for lesson in sql("SELECT * FROM lessons WHERE rowid > 1"):
-        lessons.append(f"{len(lessons)} : {lesson[0]}, \n{' ' * 4}Ссылка на занятие: {lesson[1]}; \n{' ' * 4}Ссылка на класс: {lesson[2]}; \
-                         \nНапоминание: {lesson[3]}.")
+        lessons.append(f"{len(lessons)} : {lesson[0]}, \n{' ' * 4}Ссылка на занятие: {lesson[1]}; \n{' ' * 4}Ссылка на класс: {lesson[2]}")
     bot.send_message(message.chat.id, "\n\n".join(lessons))
 
 
@@ -1064,7 +1179,7 @@ def text_msg(message):
                 if give_link in message.text.lower():
                     lesson = lesson_at(get_datetime())
                     if lesson["is_lesson"]:
-                        bot.reply_to(message, f"{lesson['name']} {lesson['link']} {lesson['remind']}")
+                        bot.reply_to(message, f"{lesson['name']} {lesson['link']} \n\nНапоминание: {lesson['remind']}")
                         bot.send_sticker(message.chat.id, get_sticker(["sad", "study"]))
                     else:
                         bot.reply_to(message, lesson["name"])
