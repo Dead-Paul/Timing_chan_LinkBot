@@ -92,12 +92,12 @@ def celebration():
                 sql("UPDATE birthdays SET birthday = ? WHERE name = ?",
                           (datetime(get_datetime().year, get_datetime().month, get_datetime().day), birthday_human[0]))
                 group_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\""))[0][0]
-                bot.send_message(group_id, f"Сегодня День Рождения у {birthday_human[0][0]}! \n\n{random.choice(congratulations)}")
+                bot.send_message(group_id, f"Сегодня День Рождения у {birthday_human[0]}! \n\n{random.choice(congratulations)}")
                 bot.send_sticker(group_id, get_sticker(["happy", "lovely"]))
                 print(f"{' ' * 4}Сегодня ({get_datetime().date()}) День Рождения у {birthday_human[0]}!\n")
         else:
             print(f"{' ' * 4}Сегодня ({get_datetime().date()}) ни у кого нет Дня рождения.\n")
-        time.sleep((get_datetime(add_days_difference=1).replace(hour=8, minute=0, second=0, microsecond=0) - get_datetime()).seconds)
+        time.sleep((get_datetime(add_days_difference=1).replace(hour=7, minute=0, second=0, microsecond=0) - get_datetime()).seconds)
 
 celebration_tread = threading.Thread(target = celebration)
 celebration_tread.start()
@@ -201,8 +201,12 @@ def lessons_distribution():
                 if rings[index][0].strftime("%H:%M") == get_datetime((1 / 60) * 3).strftime("%H:%M"):
                     lesson = lesson_at(get_datetime((1 / 60) * 4))
                     if lesson["is_lesson"] or index + 1 < len(rings):
-                        distribution(f"{lesson['name']} {lesson['link']}", lesson["remind"], ["study", "sad"])
-                        print(f"\n{' ' * 8}{index + 1} занятие началось, время: {get_datetime().strftime('%H:%M')}\n")
+                        if lesson["is_lesson"]:
+                            distribution(f"{lesson['name']} {lesson['link']}", lesson["remind"], ["study", "sad"])
+                            print(f"\n{' ' * 8}{index + 1} занятие началось, время: {get_datetime().strftime('%H:%M')}\n")
+                        elif not lesson["is_lesson"]:
+                            distribution(f"{lesson['name']} {lesson['link']}", lesson["remind"], ["study", "sad"])
+                            print(f"\n{' ' * 8}{index + 1} занятия нет, время: {get_datetime().strftime('%H:%M')}\n")
                         time.sleep((get_datetime().replace(hour = (rings[index][1] - timedelta(minutes = 1)).hour,
                                                            minute = (rings[index][1] - timedelta(minutes = 1)).minute,
                                                            second = 0, microsecond = 0) - get_datetime()).seconds)
@@ -391,7 +395,7 @@ def edit_timetable_msg(message):
                     lesson_now = lesson_at(get_datetime())
                     lesson_id = sql("SELECT lesson_id FROM timetable WHERE rowid = {}".format(number + day * len(rings)))[0][0]
                     if lesson_now["is_lesson"] and compose_lesson([lesson_id, 1])["name"] in lesson_now["name"]:
-                        distribution(f"К {lesson_now['name']} добавлено новое напоминание:", lesson_now["remind"], ["hands", "sad", "happy"])
+                        distribution(f"К {lesson_now['name']} добавлено новое напоминание:", lesson_now["remind"], ["sad", "happy"])
                         bot.send_message(message.chat.id, "Эта пара проходит сейчас - поэтому я напоминание разослано всем участникам рассылки. \n(.❛ ᴗ ❛.) ")
                 else:
                     bot.send_message(message.chat.id, "Не удалось отредактировать текст напоминания,\
