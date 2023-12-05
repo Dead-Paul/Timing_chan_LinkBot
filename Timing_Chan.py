@@ -255,7 +255,7 @@ lesson_distribution_thread = threading.Thread(target = lessons_distribution)
 lesson_distribution_thread.start()
 
 def update_user(message):
-    status = bot.get_chat_member(chat_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\""))[0][0],
+    status = bot.get_chat_member(chat_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\""))[0][0],
                                  user_id = message.from_user.id).status
     if status in statuses:
         if message.from_user.id == creator_id:
@@ -714,12 +714,14 @@ def edit_timetable_msg(message):
 
 
 
-await_to_answer = []
+await_to_answer = {}
 def answer_to_creator_message(message):
-    creator_id = sql("SELECT id FROM users WHERE access = {}".format(3))[0][0]
-    await_to_answer.remove(str(message.from_user.id))
-    bot.send_message(creator_id, f"Ответ на ваше сообщение от: @{message.from_user.username} .")
-    bot.forward_message(creator_id, message.chat.id, message.message_id)
+    for creator in [sql("SELECT id FROM users WHERE access = {}".format(3))[0][0], creator_id]:
+        if message.from_user.id in await_to_answer[creator]:
+            await_to_answer[creator].remove(message.from_user.id)
+            bot.send_message(creator, f"Ответ на ваше сообщение от: @{message.from_user.username}.")
+            bot.forward_message(creator_id, message.chat.id, message.message_id)
+            break
 
 recipients = ["В Группу", "Пользователю", "Всем Админам", "Всем Пользователям"]
 @bot.message_handler(commands = ["write"])
@@ -730,13 +732,15 @@ def write_msg(message):
         if str(message.text).lower() not in cancel:
             sended = 0
             not_sended = 0
+            if update_access == 3:
+                await_to_answer[message.from_user.id] = set()
             for recipient in recipient_ids:
                 try:
                     if update_access == 3:
                         bot.copy_message(recipient[0][0], message.chat.id, message.message_id)
-                        if str(recipient[0][0]) not in await_to_answer and str(recipient[0][0])[0] != "-":
-                            await_to_answer.append(str(recipient[0][0]))
-                            bot.register_next_step_handler(bot.send_sticker(recipient[0][0], get_sticker(["happy", "hands", "weapons", "love", "cat"])),
+                        if str(recipient[0][0])[0] != "-":
+                            await_to_answer[message.from_user.id].add(recipient[0][0])
+                            bot.register_next_step_handler(bot.send_sticker(recipient[0][0], get_sticker(["happy", "sad", "lovely"])),
                                                            answer_to_creator_message)
                     else:
                         bot.copy_message(recipient[0][0], message.chat.id, message.message_id)
@@ -770,13 +774,40 @@ def write_msg(message):
         elif str(message.text).lower() in cancel:
             bot.send_message(message.chat.id, "Отменяю отправку. \n(μ_μ) ", reply_markup = types.ReplyKeyboardRemove())
 
+    def message_to_group_name(message):
+        if str(message.text).lower() not in cancel:
+            group_id = sql("SELECT id FROM users WHERE name = {}".format(f"\"{message.text}\""))
+            if group_id != None:
+                recipient_ids.append(group_id)
+                ask_text = bot.send_message(message.chat.id, f"Следующее ваше сообщение я отправлю в \"{message.text}\": ",
+                                            reply_markup = types.ReplyKeyboardRemove())
+                bot.register_next_step_handler(ask_text, message_to_user)
+            else:
+                bot.send_message(message.chat.id, "Группа не найдена в моей базе данных, убидитесь, что вы правильно написали её название.",
+                                  reply_markup = types.ReplyKeyboardRemove())
+                bot.send_sticker(message.chat.id, get_sticker(["sad", "error"]))
+        elif str(message.text).lower() in cancel:
+            bot.send_message(message.chat.id, "Отменяю отправку. \n(μ_μ) ", reply_markup = types.ReplyKeyboardRemove())
+
     def message_to(message):
         if str(message.text).lower() not in cancel:
             if message.text in recipients or str(message.text)[0] == '@':
                 nonlocal recipient_ids
-                if message.text == recipients[1]:
-                    ask_recipient = bot.send_message(message.chat.id, f"Напишите мне ник пользователя. Если передумали - /cancel )",
-                                                     reply_markup = types.ReplyKeyboardRemove())
+                if message.text == recipients[0]:
+                    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                    groups = sql("SELECT name FROM users WHERE id < 0")
+                    for group in groups:
+                        markup.add(types.KeyboardButton(group[0]))
+                    markup.add(types.KeyboardButton("Отмена"))
+                    ask_recipient = bot.send_message(message.chat.id, f"Выберите имя группы:", reply_markup = markup)
+                    bot.register_next_step_handler(ask_recipient, message_to_group_name)
+                elif message.text == recipients[1]:
+                    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                    users = sql("SELECT name FROM users WHERE id >= 0")
+                    for user in users:
+                        markup.add(types.KeyboardButton(f"@{user[0]}"))
+                    markup.add(types.KeyboardButton("Отмена"))
+                    ask_recipient = bot.send_message(message.chat.id, f"Выберите ник пользователя:", reply_markup = markup)
                     bot.register_next_step_handler(ask_recipient, message_to_user_name)
                 else:
                     send = True
@@ -789,8 +820,6 @@ def write_msg(message):
                             bot.send_message(message.chat.id, "Пользователь не найден в моей базе данных, убидитесь, что вы правильно написали его ник.",
                                              reply_markup = types.ReplyKeyboardRemove())
                             bot.send_sticker(message.chat.id, get_sticker(["sad", "error"]))
-                    elif message.text == recipients[0]:
-                        recipient_ids.append(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")))
                     elif message.text == recipients[2]:
                         recipient_ids = sql("SELECT id FROM users WHERE access = {}".format(2))
                     elif message.text == recipients[3]:
@@ -801,8 +830,8 @@ def write_msg(message):
                         bot.register_next_step_handler(ask_text, message_to_user)
             else:
                 try:
-                    bot.copy_message(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\""))[0][0], message.chat.id,
-                                     message.message_id)
+                    bot.copy_message(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\""))[0][0],
+                                     message.chat.id, message.message_id)
                     bot.send_message(message.chat.id, "Сообщение отправлено успешно.", reply_markup = types.ReplyKeyboardRemove())
                     bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
                 except:
@@ -816,7 +845,7 @@ def write_msg(message):
     if str(message.chat.id)[0] != '-':
         update_access = update_user(message)
         if update_access == 2:
-            recipient_ids.append(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")))
+            recipient_ids.append(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\"")))
             ask_message = bot.send_message(message.chat.id, "Следующее ваше сообщение я отправлю в группу. \
                                                               \nЧтобы отменить - отправте /cancel")
             bot.register_next_step_handler(ask_message, message_to_user)
