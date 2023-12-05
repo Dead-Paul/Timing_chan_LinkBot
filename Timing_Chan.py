@@ -280,13 +280,19 @@ def start_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
 
     elif str(message.chat.id)[0] == '-':
-        if bot.get_chat(message.chat.id).title == bot_data("group_title") and sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\"")) == None:
-            sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, "\"group\"", 1, False))
-            bot.send_message(message.chat.id, f"Приветствую, моя основная группа {bot.get_chat(message.chat.id).title}! ( 〃▽〃) ")
+        if bot.get_chat(message.chat.id).title == bot_data("group_title"):
+            if sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, f"\"{bot.get_chat(message.chat.id).title}\"", 1, False)) != "ERROR":
+                bot.send_message(message.chat.id, "Приветствую, вы моя основная группа! \n♡( ◡‿◡ ) ")
+                bot.send_message(message.chat.id, "Все, кто назначен админами в этой группе - автоматически являются админами бота (меня);\n"
+                                                       "Создатель этой группы - автоматически становится главным админом (создателем бота); \n"
+                                                       "Всё это надо для команд, которые созданы специально для админов. \n\n"
+                                                       "Вообще это единственное зачем боту (мне) нужна эта группа.")
+            else:
+                bot.send_message(message.chat.id, f"Снова приветствую, {bot.get_chat(message.chat.id).title}! \nヽ(♡‿♡)ノ  ")
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
         else:
-            sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, "\"group\"", 0, False))
-            bot.send_message(message.chat.id, f"Приветствую, группа {bot.get_chat(message.chat.id).title}! ( 〃▽〃) ")
+            sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, f"\"{bot.get_chat(message.chat.id).title}\"", 0, False))
+            bot.send_message(message.chat.id, f"Приветствую, {bot.get_chat(message.chat.id).title}! \n( 〃▽〃) ")
             bot.send_sticker(message.chat.id, get_sticker(["study"]))
 
     def distribution_act(message):
