@@ -7,24 +7,27 @@ import telebot
 import threading
 from telebot import *
 from datetime import datetime, timedelta, timezone
+path = r""
 
 def bot_data(get = None, set : dict = None):
     if get != None:
-        with open("Bot_Data.json", 'r') as data:
+        with open(path + "Bot_Data.json", 'r') as data:
             return json.loads(data.read())[get]
     elif set != None:
-        with open("Bot_Data.json", 'r') as was_data:
+        with open(path + "Bot_Data.json", 'r') as was_data:
             new_data = json.loads(was_data.read())
-        with open("Bot_Data.json", 'w') as data:
+        with open(path + "Bot_Data.json", 'w') as data:
             for key, value in set.items():
                 new_data[key] = value
             return json.dump(new_data, data)
+
 
 bot_token = bot_data("token")
 bot = telebot.TeleBot(bot_token, parse_mode = None)
 bot_name = bot.get_me().username
 
 creator_id = bot_data("creator_id")
+main_group_title = bot_data("group_title")
 
 empty_remind = "Пусто ＼(〇_ｏ)／ "
 statuses = ["left", "member", "administrator", "creator"]
@@ -38,7 +41,7 @@ def get_datetime(add_hours_difference = 0, add_days_difference = 0):
 print(f"\nБот включен в {get_datetime().strftime('%H:%M')}. \nДата: {get_datetime().date()}.\n")
 
 def sql(execute_command : str, command_parameters = None):
-    base = sqlite3.connect("Bot_Data_Base.db",  detect_types = sqlite3.PARSE_DECLTYPES)
+    base = sqlite3.connect(path + "Bot_Data_Base.db",  detect_types = sqlite3.PARSE_DECLTYPES)
     cursor = base.cursor()
     try:
         if command_parameters == None:
@@ -91,7 +94,7 @@ def celebration():
             for birthday_human in birthday_humans:
                 sql("UPDATE birthdays SET birthday = ? WHERE name = ?",
                           (datetime(get_datetime().year, get_datetime().month, get_datetime().day), birthday_human[0]))
-                group_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, "\"group\""))[0][0]
+                group_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{main_group_title}\""))[0][0]
                 bot.send_message(group_id, f"Сегодня День Рождения у {birthday_human[0]}! \n\n{random.choice(congratulations)}")
                 bot.send_sticker(group_id, get_sticker(["happy", "lovely"]))
                 print(f"{' ' * 4}Сегодня ({get_datetime().date()}) День Рождения у {birthday_human[0]}!\n")
@@ -255,7 +258,7 @@ lesson_distribution_thread = threading.Thread(target = lessons_distribution)
 lesson_distribution_thread.start()
 
 def update_user(message):
-    status = bot.get_chat_member(chat_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\""))[0][0],
+    status = bot.get_chat_member(chat_id = sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{main_group_title}\""))[0][0],
                                  user_id = message.from_user.id).status
     if status in statuses:
         if message.from_user.id == creator_id:
@@ -280,7 +283,7 @@ def start_msg(message):
             bot.send_sticker(message.chat.id, get_sticker(["lovely"]))
 
     elif str(message.chat.id)[0] == '-':
-        if bot.get_chat(message.chat.id).title == bot_data("group_title"):
+        if bot.get_chat(message.chat.id).title == main_group_title:
             if sql("INSERT INTO users VALUES ({}, {}, {}, {})".format(message.chat.id, f"\"{bot.get_chat(message.chat.id).title}\"", 1, False)) != "ERROR":
                 bot.send_message(message.chat.id, "Приветствую, вы моя основная группа! \n♡( ◡‿◡ ) ")
                 bot.send_message(message.chat.id, "Все, кто назначен админами в этой группе - автоматически являются админами бота (меня);\n"
@@ -830,7 +833,7 @@ def write_msg(message):
                         bot.register_next_step_handler(ask_text, message_to_user)
             else:
                 try:
-                    bot.copy_message(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\""))[0][0],
+                    bot.copy_message(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{main_group_title}\""))[0][0],
                                      message.chat.id, message.message_id)
                     bot.send_message(message.chat.id, "Сообщение отправлено успешно.", reply_markup = types.ReplyKeyboardRemove())
                     bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
@@ -845,7 +848,7 @@ def write_msg(message):
     if str(message.chat.id)[0] != '-':
         update_access = update_user(message)
         if update_access == 2:
-            recipient_ids.append(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{bot_data('group_title')}\"")))
+            recipient_ids.append(sql("SELECT id FROM users WHERE access = {} and name = {}".format(1, f"\"{main_group_title}\"")))
             ask_message = bot.send_message(message.chat.id, "Следующее ваше сообщение я отправлю в группу. \
                                                               \nЧтобы отменить - отправте /cancel")
             bot.register_next_step_handler(ask_message, message_to_user)
