@@ -1099,10 +1099,10 @@ def FAQ_answers(message):
 def donation(message):
     bot.send_message(message.chat.id, str(bot_data("donation_text")) + " \n\nСобрано: " + str(bot_data("donation_amount")) + " денег." +
                      " \nЦель: " + str(bot_data("donation_target")) + " денег.")
-    if update_user(message) == 3:
-        bot.send_message(message.chat.id, f"/change_donation - изменить текст доната; \n"
-                                               f"/donation_amount - добавить или вычесть задоначенные деньги; \n"
-                                               f"/donation_target - Изменить целевое количество денег.")
+    if update_user(message) == 3 and str(message.chat.id)[0] != '0':
+        bot.send_message(message.chat.id, "/donation_amount - добавить или вычесть задоначенные деньги; \n"
+                                               "/change_donation - изменить текст доната; \n"
+                                               "/donation_target - Изменить целевое количество денег.")
 
 
 @bot.message_handler(commands = ["change_donation", "donation_amount", "donation_target"])
