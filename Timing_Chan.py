@@ -894,23 +894,27 @@ def gradesheet_msg(message):
                         if str(message.text).lower() not in cancel and lesson < len(lessons):
                             if message.text.isnumeric() and lessons[lesson][1] > 0:
                                 if int(message.text) <= lessons[lesson][1]:
+                                    if (lesson >= 1 and lessons[lesson - 1][1] != lessons[lesson][1]) or lesson == 0:
+                                        student_grade_list.write(f"\nОцінки за {lessons[lesson][1]}-ибальною системою:\n")
                                     student_grades[lessons[lesson][1]].append(int(message.text))
-                                    student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): {message.text}\n")
+                                    student_grade_list.write(f"{' ' * 4}{lessons[lesson][0]}: {message.text}\n")
                                     lesson += 1
                                 else:
                                     bot.send_message(message.chat.id, f"Вы превысили максимальный балл, так не получится. Попробуйте ещё раз.")
                             elif not message.text.isnumeric() or lessons[lesson][1] == 0:
                                 if lessons[lesson][1] > 0:
-                                    if message.text != "Оценка не выставлена" and message.text != "Не Атестован":
+                                    abbreviations = {"Освобожден" : "З.В.", "Оценка не выставлена" : '-', "Не Аттестован" : "Н.А."}
+                                    if message.text in abbreviations:
+                                        if (lesson >= 1 and lessons[lesson - 1][1] != lessons[lesson][1]) or lesson == 0:
+                                            student_grade_list.write(f"\nОцінки за {lessons[lesson][1]}-ибальною системою:\n")
+                                        student_grade_list.write(f"{' ' * 4}{lessons[lesson][0]}: {abbreviations[message.text]}\n")
+                                        lesson += 1
+                                    else:
                                         bot.send_message(message.chat.id, "Вводите оценки только как числа(цифры). Попробуйте ещё раз.")
-                                    elif message.text == "Оценка не выставлена":
-                                        student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): -\n")
-                                        lesson += 1
-                                    elif message.text == "Не Атестован":
-                                        student_grade_list.write(f"{lessons[lesson][0]} (макс. балл: {lessons[lesson][1]}): Н.А.\n")
-                                        lesson += 1
                                 else:
-                                    student_grade_list.write(f"{lessons[lesson][0]}: {message.text}\n")
+                                    if (lesson >= 1 and lessons[lesson - 1][1] != lessons[lesson][1]) or lesson == 0:
+                                        student_grade_list.write("\nОцінки середній бал яких не рахується:\n")
+                                    student_grade_list.write(f"{' ' * 4}{lessons[lesson][0]}: {message.text}\n")
                                     lesson += 1
                             filling_gradesheet(message)
                         elif str(message.text).lower() in cancel:
@@ -930,20 +934,21 @@ def gradesheet_msg(message):
                         student_grade_list.write(f"\n\n")
                         for max_grade in student_grades.keys():
                             if len(student_grades[max_grade]) == 0:
-                                average_value = "Нет ни одной оценки."
+                                average_value = "Немає жодної оцінки."
                             else:
-                                average_value = float("{0:.1f}".format(sum(student_grades[max_grade]) / len(student_grades[max_grade])))
-                            student_grade_list.write(f"Средний балл (по {max_grade}-и бальной системе): {average_value}\n")
+                                average_value = float("{0:.2f}".format(sum(student_grades[max_grade]) / len(student_grades[max_grade])))
+                            student_grade_list.write(f"Середній бал (за {max_grade}-ибальною системою): {average_value}\n")
                         student_grade_list.write(f"\n\n")
 
-                        student_grade_list.write("Обозначения:")
-                        student_grade_list.write("\n\"макс. балл\" - максимальная оценка, которая может быть получена;\
-                                                  \n\"Н.А.\" - Не атестован(-а). Слишком низкий бал;\
-                                                  \n\"-\" - Оценка не выставлена по неизвестной причине.")
+                        student_grade_list.write("Позначення:")
+                        student_grade_list.write(f"\n{' ' * 2}\"З.В.\" - Звільнен(-а) з предмету;\
+                                                  \n{' ' * 2}\"Н.А.\" - Не атестован(-а). Занадто низький бал;\
+                                                  \n{' ' * 2}\"-\" - Оцінку не виставлено (з невідомої причини).")
                         student_grade_list.close()
                         bot.send_message(message.chat.id, "Составление табеля законченно.", reply_markup=types.ReplyKeyboardRemove())
                         bot.send_document(message.chat.id, open(f"{student_name}.txt", "r"))
                         os.remove(f"{student_name}.txt")
+                        bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
 
                 elif str(message.text).lower() in cancel:
                     bot.send_message(message.chat.id, "Отменяю составление табеля. \n(´-ω-`) ", reply_markup=types.ReplyKeyboardRemove())
@@ -951,11 +956,12 @@ def gradesheet_msg(message):
                     os.remove(f"{student_name}.txt")
 
             student_name = message.text
-            open(f"{student_name}.txt", "w+", encoding="utf-8").write(f"Оценки {student_name}. \n\n")
+            open(f"{student_name}.txt", "w+", encoding="utf-8").write(f"Оцінки {student_name}. \n\n")
             student_grade_list = open(f"{student_name}.txt", "a", encoding="utf-8")
 
             markup = types.ReplyKeyboardMarkup(resize_keyboard = True)
-            markup.add(types.KeyboardButton("Не Атестован"))
+            markup.add(types.KeyboardButton("Не Аттестован"))
+            markup.add(types.KeyboardButton("Освобожден"))
             markup.add(types.KeyboardButton("Оценка не выставлена"))
             markup.add(types.KeyboardButton("Отмена"))
             bot.send_message(message.chat.id, "Приступим к заполнению:", reply_markup = markup)
