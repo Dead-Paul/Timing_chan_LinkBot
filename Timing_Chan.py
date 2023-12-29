@@ -117,7 +117,7 @@ def next_work_day_after(weekday : int = 0):
             for day in days:
                 if days[day[0]][2]:
                     return day[0]
-
+    return None
 
 def compose_lesson(id: list = [1, 1]):
     lesson = sql("SELECT * FROM lessons WHERE rowid = {}".format(id[0]))
@@ -367,7 +367,7 @@ def timetable_msg(message):
             bot.send_message(message.chat.id, timetable_for(today))
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
         else:
-            bot.send_message(message.chat.id, f"Сегодня выходной, отдыхайте. \nヽ(*・ω・)ﾉ  ")
+            bot.send_message(message.chat.id, "Сегодня выходной, отдыхайте. \nヽ(*・ω・)ﾉ  ")
             bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
 
     elif "tommorow" in message.text:
@@ -376,9 +376,13 @@ def timetable_msg(message):
             bot.send_message(message.chat.id, timetable_for(tommorow))
             bot.send_sticker(message.chat.id, get_sticker(["sad"]))
         else:
-            bot.send_message(message.chat.id, f"Завтра можно отдохнуть, следующий учебный день будет:")
-            bot.send_message(message.chat.id, timetable_for(next_work_day_after(tommorow)))
-            bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+            if next_work_day_after(tommorow) != None:
+                bot.send_message(message.chat.id, "Завтра можно отдохнуть, следующий учебный день будет:")
+                bot.send_message(message.chat.id, timetable_for(next_work_day_after(tommorow)))
+                bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
+            else:
+                bot.send_message(message.chat.id, "У меня ни один день не отмечен как рабочий, поэтому можете отдыхать.")
+                bot.send_sticker(message.chat.id, get_sticker(["happy", "lovely"]))
 
     update_user(message)
 
