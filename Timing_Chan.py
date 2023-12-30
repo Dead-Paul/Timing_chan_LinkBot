@@ -388,8 +388,8 @@ def timetable_msg(message):
 
 
 
-@bot.message_handler(commands = ["edit_timetable"])
-def edit_timetable_msg(message):
+@bot.message_handler(commands = ["editor"])
+def editor_msg(message):
     rings = sql("SELECT rowid, * FROM rings")
 
     def edit_remind(message, day, number):
@@ -1004,8 +1004,8 @@ def help_msg(message):
     elif "/timetable" in message.text:
         bot.send_message(message.chat.id,"Команда /timetable показывает расписание на каждый будний день недели, и показывает какие дни выходные. \
                          \nРасписание редактируется админами и шанс того что оно не правильное - мал.")
-    elif "/edit_timetable" in message.text:
-        bot.send_message(message.chat.id,"Команда /edit_timetable - для админов, \
+    elif "/editor" in message.text:
+        bot.send_message(message.chat.id,"Команда /editor - для админов, \
                          \nчтоб стать админом вам нужно быть админов в основной группе этого бота. \
                          \nКоманда позволяет редактировать расписание, напоминания и ссылки на занятия. \
                          \nСначала вы отправляете команду боту, потом выбираете что будете редактировать (кнопками): \
